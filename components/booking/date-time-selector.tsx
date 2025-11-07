@@ -109,12 +109,12 @@ export function DateTimeSelector() {
     const selectedDate = data.selectedDate // data.selectedDate ya es un Date
     const dayOfWeek = dayOfWeekInTZ(selectedDate, PST_TZ)
     // Si existe un override con timeSlots para este día, usar esos en lugar de businessHours
-    const dateOnly = new Date(selectedDate)
-    dateOnly.setHours(0,0,0,0)
+    // Comparación por clave de fecha en PST para evitar diferencias entre dispositivos
+    const selectedKey = dateKeyInTZ(selectedDate, PST_TZ)
     const overrideForDay = overrides?.find(o => {
-      const start = new Date(o.startDate); start.setHours(0,0,0,0)
-      const end = new Date(o.endDate); end.setHours(0,0,0,0)
-      return dateOnly >= start && dateOnly <= end
+      const startKey = dateKeyInTZ(new Date(o.startDate), PST_TZ)
+      const endKey = dateKeyInTZ(new Date(o.endDate), PST_TZ)
+      return selectedKey >= startKey && selectedKey <= endKey
     })
 
     if (overrideForDay?.isClosed) return []
@@ -196,21 +196,20 @@ export function DateTimeSelector() {
   const bookedDates = useMemo(() => {
     if (!overrides || overrides.length === 0) return [] as Date[];
     const results: Date[] = [];
+    const currentMonthKey = dateKeyInTZ(month, PST_TZ).slice(0, 7) // YYYY-MM
     for (const o of overrides) {
       if (!o.isClosed) continue;
-      const start = new Date(o.startDate);
-      const end = new Date(o.endDate);
-      const cursor = new Date(start);
-      cursor.setHours(0, 0, 0, 0);
-      end.setHours(0, 0, 0, 0);
-      while (cursor <= end) {
-        if (
-          cursor.getUTCFullYear() === month.getUTCFullYear() &&
-          cursor.getUTCMonth() === month.getUTCMonth()
-        ) {
-          results.push(new Date(cursor));
+      const start = new Date(o.startDate)
+      const end = new Date(o.endDate)
+      // Iterar por días usando la clave PST para no depender del tz del dispositivo
+      const dayMs = 24 * 60 * 60 * 1000
+      for (let t = start.getTime(); t <= end.getTime(); t += dayMs) {
+        const d = new Date(t)
+        const key = dateKeyInTZ(d, PST_TZ)
+        if (key.slice(0, 7) === currentMonthKey) {
+          // almacenar como Date para el calendario, usando la fecha construida desde la clave (evitar tz local)
+          results.push(new Date(key + "T00:00:00Z"))
         }
-        cursor.setDate(cursor.getDate() + 1);
       }
     }
     return results;
@@ -283,20 +282,17 @@ export function DateTimeSelector() {
 
   // Verificar si una fecha está disponible (no es pasado y la clínica está abierta con slots activos), respetando overrides
   const isDateAvailable = (date: Date) => {
-    // Usar la fecha actual en la zona horaria seleccionada
-    const today = new Date(now)
-    today.setHours(0, 0, 0, 0)
-    
-    if (date < today) return false
+    // Comparar por clave PST para evitar variaciones por tz del dispositivo
+    const todayKey = dateKeyInTZ(new Date(now), PST_TZ)
+    const dateKey = dateKeyInTZ(date, PST_TZ)
+    if (dateKey < todayKey) return false
     
     // Overrides: si existe un override para la fecha, priorizarlo
     if (overrides && overrides.length) {
-      const dateOnly = new Date(date)
-      dateOnly.setHours(0,0,0,0)
       const overrideForDay = overrides.find(o => {
-        const start = new Date(o.startDate); start.setHours(0,0,0,0)
-        const end = new Date(o.endDate); end.setHours(0,0,0,0)
-        return dateOnly >= start && dateOnly <= end
+        const startKey = dateKeyInTZ(new Date(o.startDate), PST_TZ)
+        const endKey = dateKeyInTZ(new Date(o.endDate), PST_TZ)
+        return dateKey >= startKey && dateKey <= endKey
       })
       if (overrideForDay) {
         if (overrideForDay.isClosed) return false
