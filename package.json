@@ -8,7 +8,8 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "db:seed": "npx tsx prisma/seeds/seed.ts",
-    "db:reset": "prisma migrate reset --force && npm run db:seed"
+    "db:reset": "prisma migrate reset --force && npm run db:seed",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@csstools/postcss-oklab-function": "^4.0.11",
