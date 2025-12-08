@@ -3,25 +3,31 @@ import type {
   CreateBookingData,
   UpdateBookingData,
 } from "@/types";
-import { BookingStatus, BookingType } from "@prisma/client";
+import { BookingStatus, BookingType, DaysOfWeek  } from "@prisma/client";
 import { PST_TZ, combineDateAndTimeToUtc } from "@/lib/utils/timezone";
 
 import { prisma } from "@/lib/prisma";
 
 // Función para mapear BookingFormData a CreateBookingData
+/**
+ * Mapea los datos del formulario de reserva a la estructura de creación de cita.
+ * Permite inyectar una zona horaria específica para combinar la fecha y la hora.
+ * Si no se proporciona tz, se usa PST_TZ por defecto.
+ */
 export const mapBookingFormDataToCreateData = (
-  formData: BookingFormData
+  formData: BookingFormData,
+  tz: string = PST_TZ
 ): CreateBookingData => {
   // Validar que los campos requeridos no sean null
   if (!formData.selectedDate || !formData.locationId) {
     throw new Error("Missing required fields: selectedDate and locationId");
   }
 
-  // Combinar fecha y hora asumiendo PST (America/Los_Angeles) y convertir a UTC
+  // Combinar fecha y hora usando la zona horaria proporcionada (por defecto PST)
   const bookingSchedule = combineDateAndTimeToUtc(
     formData.selectedDate,
     formData.selectedTime,
-    PST_TZ
+    tz
   );
 
   return {
@@ -45,7 +51,21 @@ export const mapBookingFormDataToCreateData = (
 // Crear cita desde el formulario del wizard
 export const createBookingFromForm = async (formData: BookingFormData) => {
   try {
-    const createData = mapBookingFormDataToCreateData(formData);
+    // Obtener la zona horaria de la ubicación seleccionada. Si no existe, se usará PST_TZ por defecto.
+    let timezone = PST_TZ;
+    try {
+      if (formData.locationId) {
+        const location = await prisma.location.findUnique({
+          where: { id: formData.locationId },
+          select: { timezone: true },
+        });
+        timezone = location?.timezone ?? PST_TZ;
+      }
+    } catch (tzError) {
+      // En caso de error al obtener la ubicación, mantener la zona horaria por defecto.
+      console.error("Error fetching location timezone:", tzError);
+    }
+    const createData = mapBookingFormDataToCreateData(formData, timezone);
     return await createBooking(createData);
   } catch (error) {
     console.error("Error creating booking from form:", error);
@@ -96,6 +116,7 @@ export const getBookingById = async (id: string) => {
     const booking = await prisma.booking.findUnique({
       where: { id },
       include: {
+        // Incluir timezone para mostrar la hora correcta según la sede
         location: true,
         specialty: true,
         service: true,
@@ -115,6 +136,7 @@ export const getAllBookings = async () => {
   try {
     const bookings = await prisma.booking.findMany({
       include: {
+        // Incluir timezone en la ubicación para poder mostrar la hora local en el front-end
         location: true,
         specialty: true,
         service: true,
@@ -136,6 +158,7 @@ export const getBookingsByPatient = async (patientId: string) => {
     const bookings = await prisma.booking.findMany({
       where: { patientId },
       include: {
+        // Incluir timezone en la ubicación para que el paciente vea la hora correcta
         location: true,
         therapist: true,
       },
@@ -154,11 +177,13 @@ export const getBookingsByTherapist = async (therapistId: string) => {
     const bookings = await prisma.booking.findMany({
       where: { therapistId },
       include: {
+        // Seleccionar la ubicación completa para incluir timezone
         location: {
           select: {
             id: true,
             title: true,
             address: true,
+            timezone: true,
           },
         },
         patient: {
@@ -732,9 +757,9 @@ export const getAvailableTimeSlots = async (
 ) => {
   try {
     // Obtener horarios de atención de la ubicación
-    const dayOfWeek = date.toLocaleDateString("en-US", {
-      weekday: "long",
-    }) as any;
+    const dayOfWeek: DaysOfWeek = date.toLocaleDateString("en-US", {
+    weekday: "long",
+  }) as DaysOfWeek;
     const businessHours = await prisma.businessHours.findFirst({
       where: {
         locationId,
