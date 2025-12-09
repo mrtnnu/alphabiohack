@@ -1,19 +1,17 @@
-import { createServerClient } from "@supabase/ssr";
-import type { ReadonlyRequestCookies } from "next/dist/server/web/spec-extension/adapters/request-cookies";
+// utils/supabase/server.ts
+import { createServerClient } from '@supabase/ssr';
+import type { ReadonlyRequestCookies } from 'next/dist/server/web/spec-extension/adapters/request-cookies';
 
 export function createServerSupabaseClient(cookieStore: ReadonlyRequestCookies) {
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_OR_ANON_KEY!,
+    process.env.SUPABASE_URL!,              // URL base de Supabase
+    process.env.SUPABASE_SERVICE_ROLE_KEY!, // clave secreta/service role
     {
       cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value ?? "";
+        get(name) {
+          return cookieStore.get(name)?.value ?? '';
         },
-
-        // No se pueden setear cookies desde aquí.
-        set() {},
-
+        set() { /* no se puede escribir cookies en SSR */ },
         remove() {},
       },
     }
