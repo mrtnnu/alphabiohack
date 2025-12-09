@@ -1,4 +1,5 @@
 import type { CreateLocationData, UpdateLocationData } from "@/types";
+import tzlookup from '@photostructure/tz-lookup';
 
 import { prisma } from "@/lib/prisma";
 
@@ -25,6 +26,10 @@ const calculateDistance = (
 // Crear ubicación
 export const createLocation = async (data: CreateLocationData) => {
   try {
+    let timezone: string | undefined;
+    if (data.lat !== undefined && data.lon !== undefined) {
+      timezone = tzlookup(data.lat, data.lon);
+    }
     const location = await prisma.location.create({
       data: {
         address: data.address,
@@ -33,6 +38,7 @@ export const createLocation = async (data: CreateLocationData) => {
         description: data.description,
         lat: data.lat,
         lon: data.lon,
+        ...(timezone ? { timezone } : {}),
       },
       include: {
         businessHours: true,
@@ -172,6 +178,10 @@ export const findNearbyLocations = async (
 // Actualizar ubicación
 export const updateLocation = async (id: string, data: UpdateLocationData) => {
   try {
+    let timezone: string | undefined;
+    if (data.lat !== undefined && data.lon !== undefined) {
+      timezone = tzlookup(data.lat, data.lon);
+    }
     const location = await prisma.location.update({
       where: { id },
       data: {
@@ -181,6 +191,7 @@ export const updateLocation = async (id: string, data: UpdateLocationData) => {
         description: data.description,
         lat: data.lat,
         lon: data.lon,
+        ...(timezone ? { timezone } : {}),
       },
       include: {
         businessHours: true,

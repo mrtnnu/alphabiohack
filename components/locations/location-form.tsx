@@ -48,6 +48,11 @@ export function LocationForm({
     lon: location?.lon || 0,
   });
 
+  // Determine if the coordinates are missing.  If either latitude or
+  // longitude is falsy (e.g. 0), we consider the coordinates not set
+  // and will show a helper message and disable the save button.
+  const coordinatesMissing = !formData.lat || !formData.lon;
+
   // Hook para subida de logo
   const logoUpload = useSupabaseUpload({
     bucketName: STORAGE_BUCKETS.LOCATIONS,
@@ -226,10 +231,18 @@ export function LocationForm({
 
               {/* Location Coordinates */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  {t("coordinates")}
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    {t("coordinates")}
+                  </h3>
+                  {coordinatesMissing && (
+                    <span className="text-xs text-red-500">
+                      {/* Show static English message; adjust translation if available */}
+                      Please add the coordinates
+                    </span>
+                  )}
+                </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -241,6 +254,7 @@ export function LocationForm({
                       onChange={(e) => handleInputChange("lat", parseFloat(e.target.value) || 0)}
                       placeholder={t("latitudePlaceholder")}
                       className="h-10 border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                      required 
                     />
                   </div>
                   
@@ -253,6 +267,7 @@ export function LocationForm({
                       onChange={(e) => handleInputChange("lon", parseFloat(e.target.value) || 0)}
                       placeholder={t("longitudePlaceholder")}
                       className="h-10 border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                      required 
                     />
                   </div>
                 </div>
@@ -273,7 +288,7 @@ export function LocationForm({
               {onSubmit && (
                 <Button
                   onClick={() => onSubmit(formData)}
-                  disabled={loading}
+                  disabled={loading || coordinatesMissing}
                   className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   <Save className="h-4 w-4 mr-2" />

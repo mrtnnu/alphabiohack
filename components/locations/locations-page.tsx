@@ -52,7 +52,11 @@ export function LocationsPage() {
     setExpandedLocation(null);
   };
 
-  const handleCreateLocation = async (formData: { title: string; address: string; description: string }) => {
+  // Accept latitude and longitude when creating a location.
+  // These fields are required by the backend to calculate the correct
+  // timezone and must be passed along with the basic information.  If
+  // lat or lon are missing the LocationForm will prevent submission.
+  const handleCreateLocation = async (formData: { title: string; address: string; description: string; logo: string; lat: number; lon: number }) => {
     const result = await createLocation(formData);
     if (result) {
       await refetch();
@@ -60,7 +64,11 @@ export function LocationsPage() {
     }
   };
 
-  const handleUpdateLocation = async (id: string, formData: { title: string; address: string; description: string }) => {
+  // Accept latitude and longitude when updating a location.  These may
+  // be undefined if the coordinates are not changed, but when they are
+  // provided they will be used to recalculate the timezone.  The
+  // LocationForm ensures lat and lon are present on submission.
+  const handleUpdateLocation = async (id: string, formData: { title: string; address: string; description: string; logo: string; lat: number; lon: number }) => {
     const result = await updateLocation(id, formData);
     if (result) {
       await refetch();
